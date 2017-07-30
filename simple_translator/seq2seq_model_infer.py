@@ -80,11 +80,12 @@ class seq2seq_model_infer:
         # For Saving weights
         self.saver = tf.train.Saver()
 
-        if weights:
-            self.saver.restore(self.sess, weights)
-
-            # for i in tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES):
-            # print(i.name)
+        # Load weights if exist
+        try:
+            self.saver.restore(self.sess, self.weights)
+            print("Loading weights.")
+        except:
+            print("No weights found.")
 
     def predict(self):
         while True:
