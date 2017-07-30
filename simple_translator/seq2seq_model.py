@@ -91,8 +91,12 @@ class seq2seq_model:
         # For Saving weights
         self.saver = tf.train.Saver()
 
-        if weights:
-            self.saver.restore(self.sess, weights)
+        # Load weights if exist
+        try:
+            self.saver.restore(self.sess, self.weights)
+            print("Loading weights.")
+        except:
+            print("No weights found.")
 
     def train(self, iterations, src_data, src_len, tgt_input, tgt_output, tgt_len, train_ratio=0.8):
 
@@ -191,4 +195,5 @@ class seq2seq_model:
                     print()
 
                 # Save the variables to disk.
+
                 self.saver.save(self.sess, self.weights)
