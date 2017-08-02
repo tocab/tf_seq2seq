@@ -6,9 +6,9 @@ import os.path
 
 # Data paths, a link to download train.tok.clean.bpe.32000.en and train.tok.clean.bpe.32000.de can be found at
 # https://google.github.io/seq2seq/nmt/
-SAVE_PICKLE_PATH = "english_german_dataset/simple_model/data.p"
-SOURCE_DATA_PATH = "english_german_dataset/wmt16_en_de/train.tok.clean.bpe.32000.en"
-TARGET_DATA_PATH = "english_german_dataset/wmt16_en_de/train.tok.clean.bpe.32000.de"
+SAVE_PICKLE_PATH = "data/data.p"
+SOURCE_DATA_PATH = "../datasets/english_german_dataset/train.tok.clean.bpe.32000.en"
+TARGET_DATA_PATH = "../datasets/english_german_dataset/train.tok.clean.bpe.32000.de"
 WEIGHTS_PATH = "weights/seq2seq_model.ckpt"
 MODE = "TRAIN"  # OR "INFER"
 # Most frequent X words that are used from each corpus. The other words will be marked with <UNK> (unknown) Symbol

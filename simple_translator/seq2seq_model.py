@@ -71,16 +71,21 @@ class seq2seq_model:
             LSTMCell(decoder_hidden_units), helper, self.encoder_final_state, output_layer=projection_layer)
 
         # Dynamic decoding to handle Basic Decoder
-        (self.final_outputs, final_state, final_sequence_lengths) = dynamic_decode(decoder, output_time_major=True)
+        self.final_outputs, final_state = dynamic_decode(decoder, output_time_major=True)
+
+        target_weights = tf.cast(tf.greater(self.decoder_target_output, 0), tf.float32)
 
         # Cross entropy Loss
-        cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
+        self.cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
             labels=tf.one_hot(self.decoder_target_output, depth=vocab_len_2, dtype=tf.float32),
             logits=self.final_outputs.rnn_output,
         )
 
-        # Mean loss for all batches
-        self.loss = tf.reduce_mean(cross_entropy)
+        # Loss masked padding with target_weights
+        self.loss = tf.reduce_sum(self.cross_entropy * target_weights) / batch_size
+
+        # OR: simple mean loss for all batches
+        # self.loss = tf.reduce_mean(self.cross_entropy)
 
         # Train with adam optimizer
         self.train_op = tf.train.AdamOptimizer().minimize(self.loss)
@@ -91,11 +96,11 @@ class seq2seq_model:
         # For Saving weights
         self.saver = tf.train.Saver()
 
-        # Load weights if exist
-        try:
+        if os.path.isfile(weights + ".index"):
+            # Load weights if exist
             self.saver.restore(self.sess, self.weights)
             print("Loading weights.")
-        except:
+        else:
             print("No weights found.")
 
     def train(self, iterations, src_data, src_len, tgt_input, tgt_output, tgt_len, train_ratio=0.8):

@@ -1,7 +1,6 @@
 import sys
 import tensorflow as tf
 import numpy as np
-import spacy
 from simple_translator import Tokenizer
 
 

@@ -1,7 +1,7 @@
 # tf_seq2seq
 Some seq2seq experiments with tensorflow
 
-Added a simple seq2seq example for Tensorflow 1.3.
+Added a simple seq2seq example for Tensorflow 1.1.0.
 
 Simple sequence prediction: <br />
 A random sequence of integers as input with the goal for the model to predict the same sequence as output.
