@@ -12,8 +12,8 @@ For using it, change paths in seq2seq_translator.py file and run it!
 
 Bucketing: <br />
 Comparison of model with and without bucketing with 500 epochs: <br />
-* without bucketing: 478.1 seconds training time
-* bucketing with 2 buckets: 453.8 seconds training time
+* without bucketing: 453.8 seconds training time
+* bucketing with 2 buckets: 478.1 seconds training time
 
 Seems that bucketing is needless in TensorFlow, maybe because the TrainingHelper
  and dynamic_rnn for the encoder already have information about the 
