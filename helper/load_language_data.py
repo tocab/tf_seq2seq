@@ -1,7 +1,7 @@
-import sys
-import tensorflow as tf
 import numpy as np
-from simple_translator import Tokenizer
+import tensorflow as tf
+
+from helper import Tokenizer
 
 
 def get_data(src_data_path, target_data_path, num_known_words):

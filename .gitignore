@@ -2,3 +2,5 @@ datasets/
 .idea
 simple_translator/weights
 simple_translator/data
+simple_translator_bucketing/weights
+simple_translator_bucketing/data

@@ -2,6 +2,8 @@ import os.path
 
 import numpy as np
 import tensorflow as tf
+import time
+import sys
 from tensorflow.contrib.rnn import LSTMCell
 from tensorflow.contrib.seq2seq import TrainingHelper, dynamic_decode
 from tensorflow.python.layers import core as layers_core
@@ -102,102 +104,110 @@ class seq2seq_model:
         else:
             print("No weights found.")
 
-    def train(self, iterations, src_data, src_len, tgt_input, tgt_output, tgt_len, train_ratio=0.8):
+    def train(self, iterations, src_data, src_len, tgt_input, tgt_output, tgt_len, bucketing=1):
 
-        # Compute dataset sizes for train and eval
-        train_size = int(tgt_input.shape[0] * train_ratio)
+        bucket_list = [[src_data, src_len, tgt_input, tgt_output, tgt_len]]
 
-        ids = np.arange(0, tgt_input.shape[0])
-        np.random.shuffle(ids)
-        train_ids = ids[:train_size]
-        eval_ids = ids[train_size:]
+        # If bucketing, assign bucket to seq
+        if bucketing > 1:
+            # lower batch size to have the same batch size on every epoch and every bucket size
+            self.batch_size = int(round(self.batch_size / bucketing))
 
-        # Split train data
-        train_src_data = src_data[train_ids]
-        train_src_len = src_len[train_ids]
-        train_tgt_input = tgt_input[train_ids]
-        train_tgt_output = tgt_output[train_ids]
-        train_tgt_len = tgt_len[train_ids]
+            # Create buckets
+            bucket_list = self.create_bucketing(src_data, src_len, tgt_input, tgt_output, tgt_len, bucketing)
 
-        # Split eval data
-        eval_src_data = src_data[eval_ids]
-        eval_src_len = src_len[eval_ids]
-        eval_tgt_input = tgt_input[eval_ids]
-        eval_tgt_output = tgt_output[eval_ids]
-        eval_tgt_len = tgt_len[eval_ids]
+        start_time = time.clock()
 
         for batch in range(iterations):
 
-            # Get train batch
-            ids = np.random.choice(train_src_data.shape[0], self.batch_size, replace=False)
-
-            # batch data
-            train_batch_src_data = train_src_data[ids].T
-            train_batch_tgt_input = train_tgt_input[ids].T
-            train_batch_tgt_output = train_tgt_output[ids].T
-
-            # batch seq len
-            train_batch_src_len = train_src_len[ids]
-            train_batch_tgt_len = train_tgt_len[ids]
-
-            # Feed dict
-            fd = {
-                self.encoder_inputs: train_batch_src_data,
-                self.encoder_inputs_length: train_batch_src_len,
-                self.decoder_target_input: train_batch_tgt_input,
-                self.decoder_target_output: train_batch_tgt_output,
-                self.decoder_target_length: train_batch_tgt_len
-            }
-
-            # train net
-            _ = self.sess.run(self.train_op, fd)
-
             if batch % 100 == 0:
-                # Get loss and examples for train data
-                train_loss, train_output = self.sess.run([self.loss, self.final_outputs.sample_id], fd)
+                print("Epoch", batch)
 
-                # Get eval batch
-                ids = np.random.choice(eval_src_data.shape[0], self.batch_size, replace=False)
+            for bucket_number, bucket in enumerate(bucket_list):
 
-                # batch data
-                eval_batch_src_data = eval_src_data[ids].T
-                eval_batch_tgt_input = eval_tgt_input[ids].T
-                eval_batch_tgt_output = eval_tgt_output[ids].T
+                # Get train batch
+                ids = np.random.choice(bucket[0].shape[0], self.batch_size, replace=False)
 
-                # batch seq len
-                eval_batch_src_len = eval_src_len[ids]
-                eval_batch_tgt_len = eval_tgt_len[ids]
+                src_data_batch = bucket[0][ids].T
+                src_len_batch = bucket[1][ids].T
+                tgt_input_batch = bucket[2][ids].T
+                tgt_output_batch = bucket[3][ids].T
+                tgt_len_batch = bucket[4][ids].T
 
-                # Feed dict with eval data
-                eval_fd = {
-                    self.encoder_inputs: eval_batch_src_data,
-                    self.encoder_inputs_length: eval_batch_src_len,
-                    self.decoder_target_input: eval_batch_tgt_input,
-                    self.decoder_target_output: eval_batch_tgt_output,
-                    self.decoder_target_length: eval_batch_tgt_len
+                # Feed dict
+                fd = {
+                    self.encoder_inputs: src_data_batch,
+                    self.encoder_inputs_length: src_len_batch,
+                    self.decoder_target_input: tgt_input_batch,
+                    self.decoder_target_output: tgt_output_batch,
+                    self.decoder_target_length: tgt_len_batch
                 }
 
-                # Get loss and examples for train data
-                eval_loss, eval_output = self.sess.run([self.loss, self.final_outputs.sample_id], eval_fd)
+                # train net
+                _ = self.sess.run(self.train_op, fd)
 
-                print("Epoch", batch)
-                print("Train loss:", train_loss)
-                print("Eval loss:", eval_loss)
-                print("Examples (train):")
-                for i in range(3):
-                    mapped_seq1 = " ".join([self.rev_word_index_1[key] for key in train_batch_src_data.T[i]])
-                    mapped_seq2 = " ".join([self.rev_word_index_2[key] for key in train_output.T[i]])
-                    print("Input    ", i, " :", mapped_seq1)
-                    print("Output   ", i, " :", mapped_seq2)
-                    print()
-                print("Examples (eval):")
-                for i in range(3):
-                    mapped_seq1 = " ".join([self.rev_word_index_1[key] for key in eval_batch_src_data.T[i]])
-                    mapped_seq2 = " ".join([self.rev_word_index_2[key] for key in eval_output.T[i]])
-                    print("Input    ", i, " :", mapped_seq1)
-                    print("Output   ", i, " :", mapped_seq2)
-                    print()
+                if batch % 100 == 0:
+                    print("Bucket", bucket_number)
+                    # Get loss and examples for train data
+                    bucket_loss, bucket_output = self.sess.run([self.loss, self.final_outputs.sample_id], fd)
+                    print("Loss:", bucket_loss)
+                    print("Example:")
+                    for i in range(1):
+                        mapped_seq1 = " ".join([self.rev_word_index_1[key] for key in src_data_batch.T[i]])
+                        mapped_seq2 = " ".join([self.rev_word_index_2[key] for key in bucket_output.T[i]])
+                        print("Input    ", i, " :", mapped_seq1)
+                        print("Output   ", i, " :", mapped_seq2)
+                        print()
 
-                # Save the variables to disk.
+                        # Save the variables to disk.
 
-                self.saver.save(self.sess, self.weights)
+                if batch % 100 == 0:
+                    self.saver.save(self.sess, self.weights)
+
+        end_time = time.clock() - start_time
+        print(iterations, "epochs after", end_time, "seconds")
+        print("That are", end_time/iterations, "seconds per iteration.")
+
+    def create_bucketing(self, src_data, src_len, tgt_input, tgt_output, tgt_len, bucketing):
+
+        # Get size for each bucket
+        bucket_size = int(max(src_len) / bucketing) + 1
+
+        # Create a list where each dataset is assigned to a bucket
+        bucket_assign = []
+        for i in range(len(src_len)):
+            input_len = src_len[i]
+            output_len = tgt_len[i]
+
+            # Decide in which dataset a bucket is sorted
+            for bucket in range(1, bucketing + 1):
+
+                bucket_len = bucket_size * bucket
+
+                if input_len <= bucket_len and output_len <= bucket_len:
+                    bucket_assign.append(bucket - 1)
+                    break
+
+        # Initialize bucket list
+        bucket_list = []
+        for i in range(bucketing):
+            bucket_list.append([[], [], [], [], []])
+
+        # Assign data to bucket list
+        for i, bucket in enumerate(bucket_assign):
+            src_data_buc = src_data[i, :bucket_size * (bucket + 1)]
+            tgt_input_buc = tgt_input[i, :bucket_size * (bucket + 1)]
+            tgt_output_buc = tgt_output[i, :bucket_size * (bucket + 1)]
+
+            bucket_list[bucket][0].append(src_data_buc)
+            bucket_list[bucket][1].append(src_len[i])
+            bucket_list[bucket][2].append(tgt_input_buc)
+            bucket_list[bucket][3].append(tgt_output_buc)
+            bucket_list[bucket][4].append(tgt_len[i])
+
+        # Convert to np array
+        for i, bucket in enumerate(bucket_list):
+            for j, data in enumerate(bucket):
+                bucket_list[i][j] = np.array(bucket_list[i][j])
+
+        return bucket_list
