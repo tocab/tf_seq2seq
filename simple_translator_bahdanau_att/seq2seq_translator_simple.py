@@ -2,7 +2,7 @@ import os.path
 import pickle
 
 from helper.load_language_data import get_data
-from simple_translator_bucketing import seq2seq_model
+from simple_translator_bahdanau_att import seq2seq_model, seq2seq_model_infer
 
 # Data paths, a link to download train.tok.clean.bpe.32000.en and train.tok.clean.bpe.32000.de can be found at
 # https://google.github.io/seq2seq/nmt/
@@ -41,4 +41,7 @@ if __name__ == "__main__":
 
     if MODE == "TRAIN":
         model = seq2seq_model.seq2seq_model(src_data_wordindex, tgt_data_wordindex, weights=WEIGHTS_PATH)
-        model.train(500, src_data, src_data_len, tgt_data_input, tgt_data_output, tgt_data_len)
+        model.train(10000, src_data, src_data_len, tgt_data_input, tgt_data_output, tgt_data_len)
+    elif MODE == "INFER":
+        model = seq2seq_model_infer.seq2seq_model_infer(src_data_wordindex, tgt_data_wordindex, weights=WEIGHTS_PATH)
+        model.predict()
